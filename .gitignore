@@ -1,0 +1,22 @@
+# Dependências e build
+node_modules/
+.aws-sam/
+
+# Credenciais e configuração local de deploy
+.env
+.env.*
+.aws/
+samconfig.toml
+credentials*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Arquivos locais do Claude Code e de agentes (não fazem parte do produto)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+.mcp.json
+graphify-out/

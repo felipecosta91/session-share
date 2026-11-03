@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: session-share backend (HTTP API + Lambda + S3 privado)
+
+Parameters:
+  RetentionDays:
+    Type: Number
+    Default: 7
+  ThrottlingRateLimit:
+    Type: Number
+    Default: 5
+  ThrottlingBurstLimit:
+    Type: Number
+    Default: 10
+
+Resources:
+  SharesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-shares
+            Status: Enabled
+            Prefix: shares/
+            ExpirationInDays: !Ref RetentionDays
+
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:
+        ThrottlingRateLimit: !Ref ThrottlingRateLimit
+        ThrottlingBurstLimit: !Ref ThrottlingBurstLimit
+
+  SharesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: handler.handler
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      MemorySize: 256
+      Timeout: 10
+      Environment:
+        Variables:
+          BUCKET: !Ref SharesBucket
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref SharesBucket
+      Events:
+        CreateShare:
+          Type: HttpApi
+          Properties: { ApiId: !Ref Api, Method: POST, Path: /shares }
+        PutChunk:
+          Type: HttpApi
+          Properties: { ApiId: !Ref Api, Method: PUT, Path: '/shares/{id}/chunks/{seq}' }
+        ListChunks:
+          Type: HttpApi
+          Properties: { ApiId: !Ref Api, Method: GET, Path: '/shares/{id}/chunks' }
+        DeleteShare:
+          Type: HttpApi
+          Properties: { ApiId: !Ref Api, Method: DELETE, Path: '/shares/{id}' }
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com

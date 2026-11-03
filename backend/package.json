@@ -1,0 +1,11 @@
+{
+  "name": "session-share-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/e2e.mjs"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0"
+  }
+}
