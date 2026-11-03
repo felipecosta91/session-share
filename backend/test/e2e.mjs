@@ -96,10 +96,12 @@ const ownerSessionId = randomUUID();
 const transcriptPath = join(ownerHome, '.claude', 'projects', encodeProjectDir(ownerCwd), `${ownerSessionId}.jsonl`);
 mkdirSync(dirname(transcriptPath), { recursive: true });
 
-const entry = (type, content) => `${JSON.stringify({ type, sessionId: ownerSessionId, cwd: ownerCwd, message: { role: type, content } })}\n`;
+// Real transcripts carry usage counters whose keys match the generic "token" secret pattern.
+const USAGE = { input_tokens: 123456, output_tokens: 654321, cache_read_input_tokens: 9999999 };
+const entry = (type, content) => `${JSON.stringify({ type, sessionId: ownerSessionId, cwd: ownerCwd, message: { role: type, content, usage: USAGE } })}\n`;
 const ownerInput = (prompt) => ({ session_id: ownerSessionId, transcript_path: transcriptPath, cwd: ownerCwd, prompt });
 
-writeFileSync(transcriptPath, entry('user', 'minha chave é sk-abcdefghijklmnopqrstuvwxyz123456'));
+writeFileSync(transcriptPath, entry('user', 'minha chave é sk-abcdefghijklmnopqrstuvwxyz123456 e password=hunter2secret'));
 appendFileSync(transcriptPath, entry('assistant', [{ type: 'text', text: 'primeira resposta' }, { type: 'tool_use', name: 'Bash', input: { command: 'ls' } }]));
 
 const shared = await runHook('prompt', ownerInput('/share-session'), ownerHome);
@@ -130,7 +132,9 @@ const imported = readFileSync(importedPath, 'utf8').trim().split('\n').map((line
 assert.equal(imported.length, 4);
 assert.ok(imported.every((line) => line.sessionId === viewerSessionId && line.cwd === viewerCwd));
 assert.equal(imported[2].message.content[0].text, bigText);
-assert.doesNotMatch(JSON.stringify(imported), /sk-abcdef/);
+assert.doesNotMatch(JSON.stringify(imported), /sk-abcdef|hunter2secret/);
+assert.match(imported[0].message.content, /password=\[REDACTED\]/);
+assert.deepEqual(imported[0].message.usage, USAGE);
 
 // Incremental updates; the trailing incomplete line must wait until it is complete.
 appendFileSync(transcriptPath, entry('assistant', [{ type: 'text', text: 'terceira resposta' }]));

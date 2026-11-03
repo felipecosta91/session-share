@@ -32,6 +32,29 @@ const SECRET_PATTERNS = [
 
 const redact = (text) => SECRET_PATTERNS.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
 
+// Redacts string values only, so keys and numbers (e.g. "input_tokens": 123) keep the line valid JSON.
+function redactValue(value) {
+  if (typeof value === 'string') return redact(value);
+  if (Array.isArray(value)) return value.map(redactValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, redactValue(nested)]));
+  }
+  return value;
+}
+
+function redactTranscript(text) {
+  const lines = text.split('\n').filter(Boolean).flatMap((line) => {
+    try {
+      return [JSON.stringify(redactValue(JSON.parse(line)))];
+    } catch (cause) {
+      if (!(cause instanceof SyntaxError)) throw cause;
+      // A line that is not JSON cannot be redacted safely, so it is not shared.
+      return [];
+    }
+  });
+  return lines.length ? `${lines.join('\n')}\n` : '';
+}
+
 function assertSessionId(sessionId) {
   if (!SESSION_ID_PATTERN.test(sessionId ?? '')) throw new Error('session id inválido');
 }
@@ -92,7 +115,7 @@ async function pushDelta(sessionId, share, transcriptPath) {
   const completeLength = transcript.lastIndexOf(0x0a) + 1;
   if (completeLength <= share.sentBytes) return;
 
-  const delta = Buffer.from(redact(transcript.subarray(share.sentBytes, completeLength).toString('utf8')));
+  const delta = Buffer.from(redactTranscript(transcript.subarray(share.sentBytes, completeLength).toString('utf8')));
   const key = Buffer.from(share.key, 'base64url');
   const chunkCount = Math.ceil(delta.length / MAX_PLAIN_CHUNK_BYTES);
 

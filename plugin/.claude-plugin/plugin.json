@@ -1,5 +1,5 @@
 {
   "name": "session-share",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Compartilha uma sessão do Claude Code, somente leitura e cifrada de ponta a ponta, com outro usuário"
 }
