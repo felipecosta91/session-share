@@ -21,7 +21,7 @@ Requisito: Node.js 18 ou mais recente.
 ## Instalação (usuário final)
 
 ```
-/plugin marketplace add felipecosta/session-share
+/plugin marketplace add felipecosta91/session-share
 /plugin install session-share@session-share
 ```
 
